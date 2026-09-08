@@ -42,7 +42,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("Scanner Dashboard (Auto-Updating)")
+st.title("📈 Scanner Dashboard (Auto-Updating)")
 
 # ---------------------------------------------------------
 # SIDEBAR CONFIGURATION
@@ -64,7 +64,6 @@ refresh_speed = st.sidebar.selectbox(
     "Refresh Interval", ["10 seconds", "30 seconds", "1 minute", "5 minutes"], index=1
 )
 
-# Map text to seconds for st.fragment run_every
 interval_map = {
     "10 seconds": 10,
     "30 seconds": 30,
@@ -77,23 +76,19 @@ if st.sidebar.button("🔄 Refresh Now"):
   st.rerun()
 
 st.sidebar.subheader("Timeframes to Scan")
+available_timeframes = ["60m", "1d", "1wk", "1mo", "3mo", "1y"]
+
 tf1_on = st.sidebar.checkbox("Timeframe #1 On/Off", value=True)
-tf1 = st.sidebar.selectbox("Timeframe #1", ["60m", "1d", "1wk"], index=0)
+tf1 = st.sidebar.selectbox("Timeframe #1", available_timeframes, index=0)
 
 tf2_on = st.sidebar.checkbox("Timeframe #2 On/Off", value=True)
-tf2 = st.sidebar.selectbox(
-    "Timeframe #2", ["60m", "1d", "1wk", "1mo"], index=1
-)
+tf2 = st.sidebar.selectbox("Timeframe #2", available_timeframes, index=1)
 
 tf3_on = st.sidebar.checkbox("Timeframe #3 On/Off", value=True)
-tf3 = st.sidebar.selectbox(
-    "Timeframe #3", ["60m", "1d", "1wk", "1mo"], index=2
-)
+tf3 = st.sidebar.selectbox("Timeframe #3", available_timeframes, index=2)
 
 tf4_on = st.sidebar.checkbox("Timeframe #4 On/Off", value=True)
-tf4 = st.sidebar.selectbox(
-    "Timeframe #4", ["60m", "1d", "1wk", "1mo"], index=3
-)
+tf4 = st.sidebar.selectbox("Timeframe #4", available_timeframes, index=3)
 
 total_score_on = st.sidebar.checkbox("Total Combined Score On/Off", value=True)
 
@@ -250,13 +245,30 @@ def calculate_score(df, trend_mode_val, reversed_flag):
 
 
 @st.cache_data(ttl=60)
-def fetch_data(ticker, interval):
+def fetch_data(ticker, timeframe):
   try:
-    period = "60d"
-    if interval == "1wk":
-      period = "1y"
-    elif interval == "1mo":
+    if timeframe == "60m":
+      period = "60d"
+      interval = "60m"
+    elif timeframe == "1d":
+      period = "6mo"
+      interval = "1d"
+    elif timeframe == "1wk":
       period = "2y"
+      interval = "1wk"
+    elif timeframe == "1mo":
+      period = "5y"
+      interval = "1mo"
+    elif timeframe == "3mo":
+      period = "max"
+      interval = "3mo"
+    elif timeframe == "1y":
+      period = "max"
+      interval = "1mo"
+    else:
+      period = "60d"
+      interval = "1d"
+
     data = yf.download(ticker, period=period, interval=interval, progress=False)
     if isinstance(data.columns, pd.MultiIndex):
       data.columns = data.columns.get_level_values(0)
@@ -396,7 +408,7 @@ render_scanner_dashboard()
 # Summary Notes
 st.markdown("""
 ### 💡 Dashboard Guide:
-* **Auto-Refresh**: Turn on **Enable Auto-Refresh** in the sidebar and choose your interval. The dashboard will query fresh market data automatically in the background.
-* **Manual Refresh**: Click **🔄 Refresh Now** in the sidebar at any time to force an immediate update.
-* **Layout**: Tables remain side-by-side on both mobile and desktop screens.
+* **Timeframes**: Now includes `60m`, `1d`, `1wk`, `1mo`, `3mo` (quarterly), and `1y`.
+* **Auto-Refresh**: Turn on **Enable Auto-Refresh** in the sidebar to keep your metrics current.
+* **Layout**: Tables remain neatly arranged side-by-side on both mobile and desktop screens.
 """)
