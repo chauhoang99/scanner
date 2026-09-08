@@ -404,11 +404,3 @@ def render_scanner_dashboard():
 
 
 render_scanner_dashboard()
-
-# Summary Notes
-st.markdown("""
-### 💡 Dashboard Guide:
-* **Timeframes**: Now includes `60m`, `1d`, `1wk`, `1mo`, `3mo` (quarterly), and `1y`.
-* **Auto-Refresh**: Turn on **Enable Auto-Refresh** in the sidebar to keep your metrics current.
-* **Layout**: Tables remain neatly arranged side-by-side on both mobile and desktop screens.
-""")
