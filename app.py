@@ -42,8 +42,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("📈 Scanner Dashboard (Auto-Updating)")
-
 # ---------------------------------------------------------
 # SIDEBAR CONFIGURATION
 # ---------------------------------------------------------
@@ -364,8 +362,6 @@ def get_group_df(tickers_to_scan):
 # ---------------------------------------------------------
 # AUTO-UPDATING DASHBOARD FRAGMENT
 # ---------------------------------------------------------
-st.markdown(f"### Active Mode: `{trend_mode}`")
-
 
 def render_scanner_dashboard():
   @st.fragment(run_every=run_interval)
