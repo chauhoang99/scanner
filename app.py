@@ -42,7 +42,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("Scanner Dashboard")
+st.title("Scanner Dashboard (Auto-Updating)")
 
 # ---------------------------------------------------------
 # SIDEBAR CONFIGURATION
@@ -57,6 +57,24 @@ trend_mode = st.sidebar.selectbox(
         " Above/Below Midline scoring."
     ),
 )
+
+st.sidebar.subheader("Auto-Refresh Settings")
+auto_refresh_on = st.sidebar.checkbox("Enable Auto-Refresh", value=False)
+refresh_speed = st.sidebar.selectbox(
+    "Refresh Interval", ["10 seconds", "30 seconds", "1 minute", "5 minutes"], index=1
+)
+
+# Map text to seconds for st.fragment run_every
+interval_map = {
+    "10 seconds": 10,
+    "30 seconds": 30,
+    "1 minute": 60,
+    "5 minutes": 300,
+}
+run_interval = interval_map[refresh_speed] if auto_refresh_on else None
+
+if st.sidebar.button("🔄 Refresh Now"):
+  st.rerun()
 
 st.sidebar.subheader("Timeframes to Scan")
 tf1_on = st.sidebar.checkbox("Timeframe #1 On/Off", value=True)
@@ -231,7 +249,7 @@ def calculate_score(df, trend_mode_val, reversed_flag):
   return score
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)
 def fetch_data(ticker, interval):
   try:
     period = "60d"
@@ -248,7 +266,7 @@ def fetch_data(ticker, interval):
 
 
 # ---------------------------------------------------------
-# ROW-WISE STYLING FUNCTION (Strict Total Score Condition)
+# ROW-WISE STYLING FUNCTION
 # ---------------------------------------------------------
 def style_row(row):
   styles = [""] * len(row)
@@ -332,40 +350,53 @@ def get_group_df(tickers_to_scan):
 
 
 # ---------------------------------------------------------
-# ITERATE & DISPLAY 2 TABLES PER ROW (FORCED SIDE-BY-SIDE)
+# AUTO-UPDATING DASHBOARD FRAGMENT
 # ---------------------------------------------------------
 st.markdown(f"### Active Mode: `{trend_mode}`")
 
-group_items = list(group_tickers.items())
 
-for i in range(0, len(group_items), 2):
-  cols = st.columns(2)
+def render_scanner_dashboard():
+  @st.fragment(run_every=run_interval)
+  def dashboard_fragment():
+    st.caption(
+        f"⏱️ Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
 
-  with cols[0]:
-    group_name_1, tickers_1 = group_items[i]
-    st.markdown(f"##### 💱 {group_name_1}")
-    df_1 = get_group_df(tickers_1)
-    if not df_1.empty:
-      st.table(df_1.style.apply(style_row, axis=1))
-    else:
-      st.info(f"No tickers for {group_name_1}")
+    group_items = list(group_tickers.items())
 
-  if i + 1 < len(group_items):
-    with cols[1]:
-      group_name_2, tickers_2 = group_items[i + 1]
-      st.markdown(f"##### 💱 {group_name_2}")
-      df_2 = get_group_df(tickers_2)
-      if not df_2.empty:
-        st.table(df_2.style.apply(style_row, axis=1))
-      else:
-        st.info(f"No tickers for {group_name_2}")
+    for i in range(0, len(group_items), 2):
+      cols = st.columns(2)
 
-  st.markdown("---")
+      with cols[0]:
+        group_name_1, tickers_1 = group_items[i]
+        st.markdown(f"##### 💱 {group_name_1}")
+        df_1 = get_group_df(tickers_1)
+        if not df_1.empty:
+          st.table(df_1.style.apply(style_row, axis=1))
+        else:
+          st.info(f"No tickers for {group_name_1}")
+
+      if i + 1 < len(group_items):
+        with cols[1]:
+          group_name_2, tickers_2 = group_items[i + 1]
+          st.markdown(f"##### 💱 {group_name_2}")
+          df_2 = get_group_df(tickers_2)
+          if not df_2.empty:
+            st.table(df_2.style.apply(style_row, axis=1))
+          else:
+            st.info(f"No tickers for {group_name_2}")
+
+      st.markdown("---")
+
+  dashboard_fragment()
+
+
+render_scanner_dashboard()
 
 # Summary Notes
 st.markdown("""
 ### 💡 Dashboard Guide:
-* **Forced Mobile Dual Columns**: Custom CSS forces two tables to sit side-by-side even on narrow mobile displays instead of collapsing into a single column.
-* **Reverse Column**: Shows whether scoring is reversed (`Yes`) or normal (`No`).
-* **Total Score Highlight Rule**: The **Total Score** column highlights only if **all active timeframes** are strictly positive (`> 0`) or negative (`< 0`).
+* **Auto-Refresh**: Turn on **Enable Auto-Refresh** in the sidebar and choose your interval. The dashboard will query fresh market data automatically in the background.
+* **Manual Refresh**: Click **🔄 Refresh Now** in the sidebar at any time to force an immediate update.
+* **Layout**: Tables remain side-by-side on both mobile and desktop screens.
 """)
