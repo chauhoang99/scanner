@@ -1,0 +1,2 @@
+# scanner
+Simple Forex Scanner
