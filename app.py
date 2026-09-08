@@ -42,7 +42,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("📈 Scanner Dashboard (Dual Mobile Layout)")
+st.title("Scanner Dashboard")
 
 # ---------------------------------------------------------
 # SIDEBAR CONFIGURATION
