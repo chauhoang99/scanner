@@ -115,7 +115,7 @@ group_tickers = {
         ("EURCHF", "EURCHF=X", False),
         ("EURJPY", "EURJPY=X", False),
         ("EURSGD", "EURSGD=X", False),
-        ("DE10Y",  "FGBL=F",   True)
+        ("XAUEUR", "XAUEUR=X", True)
     ],
     "GBP": [
         ("GBPUSD", "GBPUSD=X", False),
@@ -166,7 +166,7 @@ group_tickers = {
         ("NZDJPY", "NZDJPY=X", True),
         ("USDJPY", "USDJPY=X", True),
         ("CADJPY", "CADJPY=X", True),
-        ("JGB"   , "​236A.T"  , True)
+        ("JGB"   , "​2561.T"  , True)
     ],
     "CHF": [
         ("EURCHF", "EURCHF=X", True),
@@ -176,7 +176,7 @@ group_tickers = {
         ("USDCHF", "USDCHF=X", True),
         ("CADCHF", "CADCHF=X", True),
         ("XAUUSD", "GC=F"    , False),
-        ("CSBGC" , "​CSBGC0.S", True)
+        ("CSBGC" , "​CSBGC0.SW", True)
     ],
     "SGD": [
         ("EURSGD", "EURSGD=X", True),
