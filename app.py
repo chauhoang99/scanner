@@ -104,6 +104,7 @@ group_tickers = {
         ("XAUUSD", "GC=F"    , True),
         ("BRENT",  "BZ=F"    , False),
         ("US30",   "ZB=F"    , True),
+        ("BTCUSD", "BTC-USD" , True),
     ],
     "EUR": [
         ("EURUSD", "EURUSD=X", False),
