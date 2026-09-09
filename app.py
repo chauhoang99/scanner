@@ -77,16 +77,16 @@ st.sidebar.subheader("Timeframes to Scan")
 available_timeframes = ["60m", "1d", "1wk", "1mo", "3mo", "1y"]
 
 tf1_on = st.sidebar.checkbox("Timeframe #1 On/Off", value=True)
-tf1 = st.sidebar.selectbox("Timeframe #1", available_timeframes, index=0)
+tf1 = st.sidebar.selectbox("Timeframe #1", available_timeframes, index=1)
 
 tf2_on = st.sidebar.checkbox("Timeframe #2 On/Off", value=True)
-tf2 = st.sidebar.selectbox("Timeframe #2", available_timeframes, index=1)
+tf2 = st.sidebar.selectbox("Timeframe #2", available_timeframes, index=2)
 
 tf3_on = st.sidebar.checkbox("Timeframe #3 On/Off", value=True)
-tf3 = st.sidebar.selectbox("Timeframe #3", available_timeframes, index=2)
+tf3 = st.sidebar.selectbox("Timeframe #3", available_timeframes, index=3)
 
 tf4_on = st.sidebar.checkbox("Timeframe #4 On/Off", value=True)
-tf4 = st.sidebar.selectbox("Timeframe #4", available_timeframes, index=3)
+tf4 = st.sidebar.selectbox("Timeframe #4", available_timeframes, index=4)
 
 total_score_on = st.sidebar.checkbox("Total Combined Score On/Off", value=True)
 
