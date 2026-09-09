@@ -101,7 +101,9 @@ group_tickers = {
         ("USDCHF", "USDCHF=X", False),
         ("USDJPY", "USDJPY=X", False),
         ("USDSGD", "USDSGD=X", False),
-        ("XAUUSD", "GC=F"    , False),
+        ("XAUUSD", "GC=F"    , True),
+        ("BRENT",  "BZ=F"    , False),
+        ("US30",   "ZB=F"    , True),
     ],
     "EUR": [
         ("EURUSD", "EURUSD=X", False),
