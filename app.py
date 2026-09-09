@@ -135,6 +135,7 @@ group_tickers = {
         ("AUDCHF", "AUDCHF=X", False),
         ("AUDJPY", "AUDJPY=X", False),
         ("AUDSGD", "AUDSGD=X", False),
+        ("XAUUSD", "GC=F"    , True),
     ],
     "CAD": [
         ("EURCAD", "EURCAD=X", True),
@@ -143,6 +144,7 @@ group_tickers = {
         ("USDCAD", "USDCAD=X", True),
         ("CADCHF", "CADCHF=X", False),
         ("CADJPY", "CADJPY=X", False),
+        ("BRENT",  "BZ=F"    , False),
     ],
     "NZD": [
         ("NZDUSD", "NZDUSD=X", False),
