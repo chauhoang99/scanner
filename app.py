@@ -137,7 +137,8 @@ group_tickers = {
         ("AUDCHF", "AUDCHF=X", False),
         ("AUDJPY", "AUDJPY=X", False),
         ("AUDSGD", "AUDSGD=X", False),
-        ("XAUUSD", "GC=F"    , True),
+        ("XAUUSD", "GC=F"    , False),
+        ("VGB"   , "VGB.AX"  , True)
     ],
     "CAD": [
         ("EURCAD", "EURCAD=X", True),
@@ -146,7 +147,8 @@ group_tickers = {
         ("USDCAD", "USDCAD=X", True),
         ("CADCHF", "CADCHF=X", False),
         ("CADJPY", "CADJPY=X", False),
-        ("BRENT",  "BZ=F"    , False),
+        ("BRENT" , "BZ=F"    , False),
+        ("VAB"   , "VAB.TO"  , True ),
     ],
     "NZD": [
         ("NZDUSD", "NZDUSD=X", False),
@@ -155,6 +157,7 @@ group_tickers = {
         ("AUDNZD", "AUDNZD=X", True),
         ("NZDCAD", "NZDCAD=X", False),
         ("NZDCHF", "NZDCHF=X", False),
+        ("NGB"   , "NGB.NZ"  , True),
     ],
     "JPY": [
         ("EURJPY", "EURJPY=X", True),
@@ -163,6 +166,7 @@ group_tickers = {
         ("NZDJPY", "NZDJPY=X", True),
         ("USDJPY", "USDJPY=X", True),
         ("CADJPY", "CADJPY=X", True),
+        ("JGB"   , "​236A.T"  , True)
     ],
     "CHF": [
         ("EURCHF", "EURCHF=X", True),
@@ -171,6 +175,7 @@ group_tickers = {
         ("NZDCHF", "NZDCHF=X", True),
         ("USDCHF", "USDCHF=X", True),
         ("CADCHF", "CADCHF=X", True),
+        ("CSBGC" , "​CSBGC0.S", True)
     ],
     "SGD": [
         ("EURSGD", "EURSGD=X", True),
