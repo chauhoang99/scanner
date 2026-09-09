@@ -115,6 +115,7 @@ group_tickers = {
         ("EURCHF", "EURCHF=X", False),
         ("EURJPY", "EURJPY=X", False),
         ("EURSGD", "EURSGD=X", False),
+        ("DE10Y",  "FGBL=F",   True)
     ],
     "GBP": [
         ("GBPUSD", "GBPUSD=X", False),
@@ -125,6 +126,7 @@ group_tickers = {
         ("GBPCHF", "GBPCHF=X", False),
         ("GBPJPY", "GBPJPY=X", False),
         ("GBPSGD", "GBPSGD=X", False),
+        ("UK10Y" , "IGLT.L"  , True)
     ],
     "AUD": [
         ("AUDUSD", "AUDUSD=X", False),
