@@ -193,7 +193,7 @@ group_tickers = {
         ("AUDHKD", "AUDHKD=X", True),
     ],
     "CNY": [
-        ("USDCNH", "USDCNH=X", True),
+        ("USDCNH", "CNH=X", True),
     ],
 }
 
