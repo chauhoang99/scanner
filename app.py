@@ -175,6 +175,7 @@ group_tickers = {
         ("NZDCHF", "NZDCHF=X", True),
         ("USDCHF", "USDCHF=X", True),
         ("CADCHF", "CADCHF=X", True),
+        ("XAUUSD", "GC=F"    , False),
         ("CSBGC" , "​CSBGC0.S", True)
     ],
     "SGD": [
