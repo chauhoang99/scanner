@@ -166,7 +166,7 @@ group_tickers = {
         ("NZDJPY", "NZDJPY=X", True),
         ("USDJPY", "USDJPY=X", True),
         ("CADJPY", "CADJPY=X", True),
-        ("JGB"   , "2561.T"  , True)
+        ("JGB"   , "​2561.T"  , True)
     ],
     "CHF": [
         ("EURCHF", "EURCHF=X", True),
@@ -176,7 +176,7 @@ group_tickers = {
         ("USDCHF", "USDCHF=X", True),
         ("CADCHF", "CADCHF=X", True),
         ("XAUUSD", "GC=F"    , False),
-        ("CSBGC" , "CSBGC0.SW", True)
+        ("CSBGC" , "​CSBGC0.SW", True)
     ],
     "SGD": [
         ("EURSGD", "EURSGD=X", True),
@@ -199,70 +199,61 @@ group_tickers = {
 
 
 # ---------------------------------------------------------
-# CORE LOGIC: SCORING SEQUENCE FUNCTION
+# CORE LOGIC: SCORING FUNCTION
 # ---------------------------------------------------------
-def calculate_score_sequence(df, trend_mode_val, reversed_flag):
-  if df is None or len(df) < 3:
-    return "0-0", 0
+def calculate_score(df, trend_mode_val, reversed_flag):
+  if df is None or len(df) < 2:
+    return 0
 
-  def get_score_at(d, idx, mode, rev):
-    if idx < 1 or idx >= len(d):
-      return 0
+  prev_open = df["Open"].iloc[-2]
+  prev_high = df["High"].iloc[-2]
+  prev_low = df["Low"].iloc[-2]
+  prev_close = df["Close"].iloc[-2]
+  curr_close = df["Close"].iloc[-1]
 
-    prev_open = d["Open"].iloc[idx - 1]
-    prev_high = d["High"].iloc[idx - 1]
-    prev_low = d["Low"].iloc[idx - 1]
-    prev_close = d["Close"].iloc[idx - 1]
-    curr_close = d["Close"].iloc[idx]
+  green_candle = prev_close >= prev_open
+  if green_candle:
+    midline = ((prev_close - prev_open) / 2.0) + prev_open
+  else:
+    midline = ((prev_open - prev_close) / 2.0) + prev_close
 
-    green_candle = prev_close >= prev_open
+  score = 0
+
+  if trend_mode_val == "Open, High, Low, Close + Midline":
     if green_candle:
-      midline = ((prev_close - prev_open) / 2.0) + prev_open
+      if curr_close >= midline and curr_close < prev_close:
+        score = -1 if reversed_flag else 1
+      elif curr_close < midline and curr_close > prev_open:
+        score = 1 if reversed_flag else -1
+      elif curr_close >= prev_close and curr_close < prev_high:
+        score = -2 if reversed_flag else 2
+      elif curr_close <= prev_open and curr_close > prev_low:
+        score = 2 if reversed_flag else -2
+      elif curr_close >= prev_high:
+        score = -3 if reversed_flag else 3
+      elif curr_close <= prev_low:
+        score = 3 if reversed_flag else -3
+    else:  # Red candle
+      if curr_close >= midline and curr_close < prev_open:
+        score = -1 if reversed_flag else 1
+      elif curr_close < midline and curr_close > prev_close:
+        score = 1 if reversed_flag else -1
+      elif curr_close >= prev_open and curr_close < prev_high:
+        score = -2 if reversed_flag else 2
+      elif curr_close <= prev_close and curr_close > prev_low:
+        score = 2 if reversed_flag else -2
+      elif curr_close >= prev_high:
+        score = -3 if reversed_flag else 3
+      elif curr_close <= prev_low:
+        score = 3 if reversed_flag else -3
+
+  elif trend_mode_val == "Above/Below Midline":
+    if curr_close >= midline:
+      score = -3 if reversed_flag else 3
     else:
-      midline = ((prev_open - prev_close) / 2.0) + prev_close
+      score = 3 if reversed_flag else -3
 
-    score = 0
-
-    if mode == "Open, High, Low, Close + Midline":
-      if green_candle:
-        if curr_close >= midline and curr_close < prev_close:
-          score = -1 if rev else 1
-        elif curr_close < midline and curr_close > prev_open:
-          score = 1 if rev else -1
-        elif curr_close >= prev_close and curr_close < prev_high:
-          score = -2 if rev else 2
-        elif curr_close <= prev_open and curr_close > prev_low:
-          score = 2 if rev else -2
-        elif curr_close >= prev_high:
-          score = -3 if rev else 3
-        elif curr_close <= prev_low:
-          score = 3 if rev else -3
-      else:  # Red candle
-        if curr_close >= midline and curr_close < prev_open:
-          score = -1 if rev else 1
-        elif curr_close < midline and curr_close > prev_close:
-          score = 1 if rev else -1
-        elif curr_close >= prev_open and curr_close < prev_high:
-          score = -2 if rev else 2
-        elif curr_close <= prev_close and curr_close > prev_low:
-          score = 2 if rev else -2
-        elif curr_close >= prev_high:
-          score = -3 if rev else 3
-        elif curr_close <= prev_low:
-          score = 3 if rev else -3
-
-    elif mode == "Above/Below Midline":
-      if curr_close >= midline:
-        score = -3 if rev else 3
-      else:
-        score = 3 if rev else -3
-
-    return score
-
-  score_prev = get_score_at(df, len(df) - 2, trend_mode_val, reversed_flag)
-  score_curr = get_score_at(df, len(df) - 1, trend_mode_val, reversed_flag)
-
-  return f"{score_prev}-{score_curr}", score_curr
+  return score
 
 
 @st.cache_data(ttl=60)
@@ -299,7 +290,7 @@ def fetch_data(ticker, timeframe):
 
 
 # ---------------------------------------------------------
-# ROW-WISE STYLING FUNCTION (Based on Current Score)
+# ROW-WISE STYLING FUNCTION
 # ---------------------------------------------------------
 def style_row(row):
   styles = [""] * len(row)
@@ -308,27 +299,22 @@ def style_row(row):
   for i, col in enumerate(row.index):
     val = row[col]
     if col not in ["Ticker", "Reverse", "Total Score"]:
-      try:
-        # Extract the current score (the last part after the hyphen) for color logic
-        score_val = int(str(val).split("-")[-1])
-      except:
-        score_val = 0
-
-      tf_values.append(score_val)
-      if score_val >= 3:
-        styles[i] = "background-color: #00ff84; color: black; font-weight: bold;"
-      elif score_val == 2:
-        styles[i] = "background-color: #008143; color: white; font-weight: bold;"
-      elif score_val == 1:
-        styles[i] = "background-color: #004624; color: white;"
-      elif score_val <= -3:
-        styles[i] = "background-color: #ff0000; color: white; font-weight: bold;"
-      elif score_val == -2:
-        styles[i] = "background-color: #aa0000; color: white; font-weight: bold;"
-      elif score_val == -1:
-        styles[i] = "background-color: #690000; color: white;"
-      else:
-        styles[i] = "background-color: #808080; color: white;"
+      if isinstance(val, (int, float)):
+        tf_values.append(val)
+        if val >= 3:
+          styles[i] = "background-color: #00ff84; color: black; font-weight: bold;"
+        elif val == 2:
+          styles[i] = "background-color: #008143; color: white; font-weight: bold;"
+        elif val == 1:
+          styles[i] = "background-color: #004624; color: white;"
+        elif val <= -3:
+          styles[i] = "background-color: #ff0000; color: white; font-weight: bold;"
+        elif val == -2:
+          styles[i] = "background-color: #aa0000; color: white; font-weight: bold;"
+        elif val == -1:
+          styles[i] = "background-color: #690000; color: white;"
+        else:
+          styles[i] = "background-color: #808080; color: white;"
 
     elif col == "Total Score":
       if tf_values:
@@ -352,36 +338,36 @@ def style_row(row):
 def get_group_df(tickers_to_scan):
   results = []
   for display_name, yf_ticker, rev_flag in tickers_to_scan:
-    s1_str, s1_val = (
-        calculate_score_sequence(fetch_data(yf_ticker, tf1), trend_mode, rev_flag)
+    s1 = (
+        calculate_score(fetch_data(yf_ticker, tf1), trend_mode, rev_flag)
         if tf1_on
-        else ("0-0", 0)
+        else 0
     )
-    s2_str, s2_val = (
-        calculate_score_sequence(fetch_data(yf_ticker, tf2), trend_mode, rev_flag)
+    s2 = (
+        calculate_score(fetch_data(yf_ticker, tf2), trend_mode, rev_flag)
         if tf2_on
-        else ("0-0", 0)
+        else 0
     )
-    s3_str, s3_val = (
-        calculate_score_sequence(fetch_data(yf_ticker, tf3), trend_mode, rev_flag)
+    s3 = (
+        calculate_score(fetch_data(yf_ticker, tf3), trend_mode, rev_flag)
         if tf3_on
-        else ("0-0", 0)
+        else 0
     )
-    s4_str, s4_val = (
-        calculate_score_sequence(fetch_data(yf_ticker, tf4), trend_mode, rev_flag)
+    s4 = (
+        calculate_score(fetch_data(yf_ticker, tf4), trend_mode, rev_flag)
         if tf4_on
-        else ("0-0", 0)
+        else 0
     )
 
-    total = s1_val + s2_val + s3_val + s4_val if total_score_on else 0
+    total = s1 + s2 + s3 + s4 if total_score_on else 0
 
     results.append({
         "Ticker": display_name,
         "Reverse": "Yes" if rev_flag else "No",
-        f"TF 1 ({tf1})": s1_str,
-        f"TF 2 ({tf2})": s2_str,
-        f"TF 3 ({tf3})": s3_str,
-        f"TF 4 ({tf4})": s4_str,
+        f"TF 1 ({tf1})": s1,
+        f"TF 2 ({tf2})": s2,
+        f"TF 3 ({tf3})": s3,
+        f"TF 4 ({tf4})": s4,
         "Total Score": total if total_score_on else "N/A",
     })
   return pd.DataFrame(results)
@@ -390,7 +376,6 @@ def get_group_df(tickers_to_scan):
 # ---------------------------------------------------------
 # AUTO-UPDATING DASHBOARD FRAGMENT
 # ---------------------------------------------------------
-
 
 def render_scanner_dashboard():
   @st.fragment(run_every=run_interval)
