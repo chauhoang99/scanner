@@ -323,19 +323,19 @@ def style_row(row):
             curr_val = 0
 
         if curr_val >= 3:
-          styles[i] = "background-color: #0b6623; color: #00bfff; font-weight: bold;"
+          styles[i] = "background-color: #0b6623; color: white; font-weight: bold;"
         elif curr_val == 2:
           styles[i] = "background-color: #008143; color: black; font-weight: bold;"
         elif curr_val == 1:
           styles[i] = "background-color: #004624; color: black;"
         elif curr_val <= -3:
-          styles[i] = "background-color: #b30000; color: #00bfff; font-weight: bold;"
+          styles[i] = "background-color: #b30000; color: white; font-weight: bold;"
         elif curr_val == -2:
           styles[i] = "background-color: #aa0000; color: black; font-weight: bold;"
         elif curr_val == -1:
           styles[i] = "background-color: #690000; color: black;"
         else:
-          styles[i] = "background-color: #808080; color: #00bfff;"
+          styles[i] = "background-color: #808080; color: white;"
 
   return styles
 
