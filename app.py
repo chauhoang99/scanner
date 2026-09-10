@@ -334,7 +334,7 @@ def style_row(row):
             )
             if target_val >= 3:
               styles[i] = (
-                  "background-color: #0b6623; color: #00bfff; font-weight:"
+                  "background-color: ​#00E676; color: #00bfff; font-weight:"
                   " bold;"
               )
             else:
