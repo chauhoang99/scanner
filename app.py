@@ -259,7 +259,6 @@ def calculate_score_sequence(df, trend_mode_val, reversed_flag):
 
     return score
 
-  # Calculate score for previous bar and current bar
   score_prev = get_score_at(df, len(df) - 2, trend_mode_val, reversed_flag)
   score_curr = get_score_at(df, len(df) - 1, trend_mode_val, reversed_flag)
 
@@ -300,41 +299,41 @@ def fetch_data(ticker, timeframe):
 
 
 # ---------------------------------------------------------
-# ROW-WISE STYLING FUNCTION (Based on current/latest score)
+# ROW-WISE STYLING FUNCTION (Based on Current Score)
 # ---------------------------------------------------------
 def style_row(row):
   styles = [""] * len(row)
-  tf_current_values = []
+  tf_values = []
 
   for i, col in enumerate(row.index):
     val = row[col]
     if col not in ["Ticker", "Reverse", "Total Score"]:
       try:
-        # Extract the current score (the last part after the hyphen)
-        curr_val = int(str(val).split("-")[-1])
+        # Extract the current score (the last part after the hyphen) for color logic
+        score_val = int(str(val).split("-")[-1])
       except:
-        curr_val = 0
+        score_val = 0
 
-      tf_current_values.append(curr_val)
-      if curr_val >= 3:
+      tf_values.append(score_val)
+      if score_val >= 3:
         styles[i] = "background-color: #00ff84; color: black; font-weight: bold;"
-      elif curr_val == 2:
+      elif score_val == 2:
         styles[i] = "background-color: #008143; color: white; font-weight: bold;"
-      elif curr_val == 1:
+      elif score_val == 1:
         styles[i] = "background-color: #004624; color: white;"
-      elif curr_val <= -3:
+      elif score_val <= -3:
         styles[i] = "background-color: #ff0000; color: white; font-weight: bold;"
-      elif curr_val == -2:
+      elif score_val == -2:
         styles[i] = "background-color: #aa0000; color: white; font-weight: bold;"
-      elif curr_val == -1:
+      elif score_val == -1:
         styles[i] = "background-color: #690000; color: white;"
       else:
         styles[i] = "background-color: #808080; color: white;"
 
     elif col == "Total Score":
-      if tf_current_values:
-        all_positive = all(v > 0 for v in tf_current_values)
-        all_negative = all(v < 0 for v in tf_current_values)
+      if tf_values:
+        all_positive = all(v > 0 for v in tf_values)
+        all_negative = all(v < 0 for v in tf_values)
 
         if all_positive:
           styles[i] = (
