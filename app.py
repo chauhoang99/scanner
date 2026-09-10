@@ -314,28 +314,52 @@ def style_row(row):
       if pd.notna(val):
         val_str = str(val)
         matches = re.findall(r'-?[0-3]', val_str)
+        
         if matches:
-          curr_val = int(matches[-1])
-        else:
-          try:
-            curr_val = int(val_str)
-          except:
-            curr_val = 0
+          scores = [int(m) for m in matches]
+          curr_val = scores[-1]
+          past_val = scores[0] if len(scores) > 1 else None
 
-        if curr_val >= 3:
-          styles[i] = "background-color: #0b6623; color: white; font-weight: bold;"
-        elif curr_val == 2:
-          styles[i] = "background-color: #008143; color: black; font-weight: bold;"
-        elif curr_val == 1:
-          styles[i] = "background-color: #004624; color: black;"
-        elif curr_val <= -3:
-          styles[i] = "background-color: #b30000; color: white; font-weight: bold;"
-        elif curr_val == -2:
-          styles[i] = "background-color: #aa0000; color: black; font-weight: bold;"
-        elif curr_val == -1:
-          styles[i] = "background-color: #690000; color: black;"
+          # Check if either the current OR past score meets the extreme threshold (>= 3 or <= -3)
+          is_extreme = (curr_val >= 3 or curr_val <= -3) or (
+              past_val is not None and (past_val >= 3 or past_val <= -3)
+          )
+
+          if is_extreme:
+            # Determine whether to use bullish or bearish extreme styling based on the extreme score
+            target_val = (
+                curr_val
+                if (curr_val >= 3 or curr_val <= -3)
+                else past_val
+            )
+            if target_val >= 3:
+              styles[i] = (
+                  "background-color: #0b6623; color: #00bfff; font-weight:"
+                  " bold;"
+              )
+            else:
+              styles[i] = (
+                  "background-color: #b30000; color: #00bfff; font-weight:"
+                  " bold;"
+              )
+          else:
+            # Standard styling for non-extreme scores based on the current value
+            if curr_val == 2:
+              styles[i] = (
+                  "background-color: #008143; color: black; font-weight: bold;"
+              )
+            elif curr_val == 1:
+              styles[i] = "background-color: #004624; color: black;"
+            elif curr_val == -2:
+              styles[i] = (
+                  "background-color: #aa0000; color: black; font-weight: bold;"
+              )
+            elif curr_val == -1:
+              styles[i] = "background-color: #690000; color: black;"
+            else:
+              styles[i] = "background-color: #808080; color: #00bfff;"
         else:
-          styles[i] = "background-color: #808080; color: white;"
+          styles[i] = "background-color: #808080; color: #00bfff;"
 
   return styles
 
