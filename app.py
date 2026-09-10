@@ -89,8 +89,6 @@ tf3 = st.sidebar.selectbox("Timeframe #3", available_timeframes, index=3)
 tf4_on = st.sidebar.checkbox("Timeframe #4 On/Off", value=True)
 tf4 = st.sidebar.selectbox("Timeframe #4", available_timeframes, index=4)
 
-total_score_on = st.sidebar.checkbox("Total Combined Score On/Off", value=True)
-
 # Define Tickers per group (matching OANDA FX pairs from Pine Script)
 group_tickers = {
     "USD": [
@@ -309,14 +307,12 @@ def fetch_data(ticker, timeframe):
 # ---------------------------------------------------------
 def style_row(row):
   styles = [""] * len(row)
-  tf_values_numeric = []
 
   for i, col in enumerate(row.index):
     val = row[col]
-    if col not in ["Ticker", "Reverse", "Total Score"]:
+    if col not in ["Ticker", "Reverse"]:
       if pd.notna(val):
         val_str = str(val)
-        # Extract the current score using regex matching (takes the last score component)
         matches = re.findall(r'-?[0-3]', val_str)
         if matches:
           curr_val = int(matches[-1])
@@ -326,8 +322,6 @@ def style_row(row):
           except:
             curr_val = 0
 
-        tf_values_numeric.append(curr_val)
-
         if curr_val >= 3:
           styles[i] = "background-color: #00ff84; color: black; font-weight: bold;"
         elif curr_val == 2:
@@ -335,29 +329,13 @@ def style_row(row):
         elif curr_val == 1:
           styles[i] = "background-color: #004624; color: white;"
         elif curr_val <= -3:
-          styles[i] = "background-color: #ff0000; color: white; font-weight: bold;"
+          styles[i] = "background-color: #ff0000; color: black; font-weight: bold;"
         elif curr_val == -2:
           styles[i] = "background-color: #aa0000; color: white; font-weight: bold;"
         elif curr_val == -1:
           styles[i] = "background-color: #690000; color: white;"
         else:
           styles[i] = "background-color: #808080; color: white;"
-
-    elif col == "Total Score":
-      if tf_values_numeric:
-        all_positive = all(v > 0 for v in tf_values_numeric)
-        all_negative = all(v < 0 for v in tf_values_numeric)
-
-        if all_positive:
-          styles[i] = (
-              "background-color: #00ff84; color: black; font-weight: bold;"
-          )
-        elif all_negative:
-          styles[i] = (
-              "background-color: #ff0000; color: white; font-weight: bold;"
-          )
-        else:
-          styles[i] = ""
 
   return styles
 
@@ -370,12 +348,10 @@ def get_group_df(tickers_to_scan):
     res3 = calculate_score(fetch_data(yf_ticker, tf3), trend_mode, rev_flag) if tf3_on else ("0", 0)
     res4 = calculate_score(fetch_data(yf_ticker, tf4), trend_mode, rev_flag) if tf4_on else ("0", 0)
 
-    s1_str, s1_num = res1
-    s2_str, s2_num = res2
-    s3_str, s3_num = res3
-    s4_str, s4_num = res4
-
-    total = (s1_num + s2_num + s3_num + s4_num) if total_score_on else 0
+    s1_str, _ = res1
+    s2_str, _ = res2
+    s3_str, _ = res3
+    s4_str, _ = res4
 
     results.append({
         "Ticker": display_name,
@@ -384,7 +360,6 @@ def get_group_df(tickers_to_scan):
         f"TF 2 ({tf2})": s2_str,
         f"TF 3 ({tf3})": s3_str,
         f"TF 4 ({tf4})": s4_str,
-        "Total Score": total if total_score_on else "N/A",
     })
   return pd.DataFrame(results)
 
