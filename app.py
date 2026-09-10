@@ -327,14 +327,10 @@ def style_row(row):
 
           if is_extreme:
             # Determine whether to use bullish or bearish extreme styling based on the extreme score
-            target_val = (
-                curr_val
-                if (curr_val >= 3 or curr_val <= -3)
-                else past_val
-            )
+            target_val = curr_val
             if target_val >= 3:
               styles[i] = (
-                  "background-color: ​#00E676; color: #00bfff; font-weight:"
+                  "background-color: ​​#00E676; color: #00bfff; font-weight:"
                   " bold;"
               )
             else:
