@@ -89,8 +89,8 @@ tf_options = {
     "D": ("Day", True),
     "H8": ("8 Hours", True),
     "H1": ("1 Hour", False),
-    "M30": ("30 Mins", True),
-    "M15": ("15 Mins", True),
+    "M30": ("30 Mins", False),
+    "M15": ("15 Mins", False),
     "M5": ("5 Mins", False),
     "M1": ("1 Min", False),
 }
