@@ -1,5 +1,4 @@
 from datetime import datetime
-import re
 import pandas as pd
 import requests
 import streamlit as st
@@ -26,7 +25,7 @@ st.markdown(
         width: 100% !important;
     }
     th, td {
-        padding: 3px 5px !important;
+        padding: 3px 4px !important;
         text-align: center !important;
         white-space: nowrap !important;
     }
@@ -90,8 +89,8 @@ tf_options = {
     "D": ("Day", True),
     "H8": ("8 Hours", True),
     "H1": ("1 Hour", False),
-    "M30": ("30 Mins", False),
-    "M15": ("15 Mins", False),
+    "M30": ("30 Mins", True),
+    "M15": ("15 Mins", True),
     "M5": ("5 Mins", False),
     "M1": ("1 Min", False),
 }
@@ -149,7 +148,7 @@ group_tickers = {
 
 
 # ---------------------------------------------------------
-# SINGLE OANDA CANDLE FETCH FUNCTION
+# OANDA CANDLE FETCH FUNCTION (3 BARS context)
 # ---------------------------------------------------------
 def fetch_oanda_candles(instrument, granularity, count=5, token=None, env="Practice"):
     if not token:
@@ -173,17 +172,21 @@ def fetch_oanda_candles(instrument, granularity, count=5, token=None, env="Pract
         if response.status_code == 200:
             candles = response.json().get("candles", [])
             valid_candles = [c for c in candles if c.get("complete") or c == candles[-1]]
-            if len(valid_candles) >= 2:
-                prev_c = valid_candles[-2]["mid"]
-                curr_c = valid_candles[-1]["mid"]
+            if len(valid_candles) >= 3:
+                c2 = valid_candles[-3]["mid"]  # 2 bars ago (Closed)
+                c1 = valid_candles[-2]["mid"]  # 1 bar ago (Closed)
+                c0 = valid_candles[-1]["mid"]  # Live opening bar
                 return {
-                    "open": float(curr_c["o"]),
-                    "high": float(curr_c["h"]),
-                    "low": float(curr_c["l"]),
-                    "close": float(curr_c["c"]),
-                    "prev_high": float(prev_c["h"]),
-                    "prev_low": float(prev_c["l"]),
-                    "prev_open": float(prev_c["o"])
+                    "c2_high": float(c2["h"]),
+                    "c2_low": float(c2["l"]),
+                    "c1_open": float(c1["o"]),
+                    "c1_high": float(c1["h"]),
+                    "c1_low": float(c1["l"]),
+                    "c1_close": float(c1["c"]),
+                    "c0_open": float(c0["o"]),
+                    "c0_high": float(c0["h"]),
+                    "c0_low": float(c0["l"]),
+                    "c0_close": float(c0["c"]),
                 }
     except Exception:
         return None
@@ -205,7 +208,7 @@ def get_strat_bar_type(h, l, prev_h, prev_l):
     return "?"
 
 
-def analyze_tf_strat(o, h, l, c, prev_h, prev_l, method="Either"):
+def analyze_single_bar(o, h, l, c, prev_h, prev_l, method="Either"):
     bar_type = get_strat_bar_type(h, l, prev_h, prev_l)
     above_open = c > o
     inside_prev_range = (c <= prev_h) and (c >= prev_l)
@@ -231,7 +234,7 @@ def analyze_tf_strat(o, h, l, c, prev_h, prev_l, method="Either"):
     in_force_str = "▲" if in_force_up else ("▼" if in_force_dn else "")
     failed_str = "F" if is_failed else ""
 
-    status_str = f"{bar_type} {failed_str} {dir_str} {in_force_str}".strip()
+    status_str = f"{bar_type}{failed_str} {dir_str} {in_force_str}".strip()
 
     return {
         "status": status_str,
@@ -241,29 +244,31 @@ def analyze_tf_strat(o, h, l, c, prev_h, prev_l, method="Either"):
 
 
 # ---------------------------------------------------------
-# ROW STYLING FUNCTION (MATCHING TRADINGVIEW COLOR CODES)
+# ROW STYLING FUNCTION (BACKGROUND DRIVEN BY LIVE STATE)
 # ---------------------------------------------------------
 def style_row(row):
     styles = [""] * len(row)
     for i, col in enumerate(row.index):
         val = str(row[col])
-        if "2U" in val:
-            if "F" in val:
+        live_val = val.split("➔")[-1] if "➔" in val else val
+
+        if "2U" in live_val:
+            if "F" in live_val:
                 styles[i] = "background-color: #f77c80; color: black; font-weight: bold;"  # Failed 2U (Pink)
             else:
                 styles[i] = "background-color: #4caf50; color: white; font-weight: bold;"  # 2U (Bright Green)
-        elif "2D" in val:
-            if "F" in val:
+        elif "2D" in live_val:
+            if "F" in live_val:
                 styles[i] = "background-color: #81c784; color: black; font-weight: bold;"  # Failed 2D (Light Green)
             else:
                 styles[i] = "background-color: #f23645; color: white; font-weight: bold;"  # 2D (Bright Red)
-        elif val.startswith("1"):
-            if "↑" in val:
+        elif live_val.strip().startswith("1"):
+            if "↑" in live_val:
                 styles[i] = "background-color: #ffeb3b; color: black; font-weight: bold;"  # 1 Up (Yellow)
             else:
                 styles[i] = "background-color: #ff9800; color: black; font-weight: bold;"  # 1 Down (Orange)
-        elif val.startswith("3"):
-            if "↑" in val:
+        elif live_val.strip().startswith("3"):
+            if "↑" in live_val:
                 styles[i] = "background-color: #1b5e20; color: white; font-weight: bold;"  # 3 Up (Dark Green)
             else:
                 styles[i] = "background-color: #801922; color: white; font-weight: bold;"  # 3 Down (Dark Red)
@@ -292,17 +297,26 @@ def get_group_strat_df(tickers_to_scan, candle_cache):
         for tf in selected_tfs:
             data = candle_cache.get((oanda_inst, tf))
             if data:
-                res = analyze_tf_strat(
-                    data["open"], data["high"], data["low"], data["close"],
-                    data["prev_high"], data["prev_low"], failed_method
+                # 1. Closed Candle (C1 evaluated vs C2)
+                prev_res = analyze_single_bar(
+                    data["c1_open"], data["c1_high"], data["c1_low"], data["c1_close"],
+                    data["c2_high"], data["c2_low"], failed_method
                 )
-                row_data[tf] = res["status"]
-                if res["in_force_up"]: up_count += 1
-                if res["in_force_dn"]: dn_count += 1
+                # 2. Live Candle (C0 evaluated vs C1)
+                curr_res = analyze_single_bar(
+                    data["c0_open"], data["c0_high"], data["c0_low"], data["c0_close"],
+                    data["c1_high"], data["c1_low"], failed_method
+                )
+
+                prev_clean = prev_res["status"].replace("▲", "").replace("▼", "").strip()
+                row_data[tf] = f"{prev_clean} ➔ {curr_res['status']}"
+
+                if curr_res["in_force_up"]: up_count += 1
+                if curr_res["in_force_dn"]: dn_count += 1
             else:
                 row_data[tf] = "N/A"
 
-        # In-Force Summary
+        # In-Force Summary (Based on Live State)
         if up_count > 0 and dn_count > 0:
             row_data["Summary"] = "Conflicted"
         elif up_count > 0:
@@ -328,10 +342,8 @@ def render_strat_dashboard():
         st.warning("⚠️ Oanda API token not found. Please add `oanda_api_token` to your Streamlit Cloud Secrets dashboard.")
         return
 
-    # Extract all unique instrument symbols across groups to prevent duplicate API calls
     unique_instruments = sorted(list({oanda_inst for group in group_tickers.values() for _, oanda_inst in group}))
 
-    # Single-pass pre-fetch into memory cache
     candle_cache = {}
     with st.spinner("Fetching live Oanda Strat data..."):
         for inst in unique_instruments:
@@ -340,7 +352,7 @@ def render_strat_dashboard():
                     inst, tf, count=5, token=api_token, env=oanda_env
                 )
 
-    st.caption(f"⏱️ Last updated (#TheStrat MTF scan): {datetime.now().strftime('%H:%M:%S')}")
+    st.caption(f"⏱️ Format: **[Closed Bar] ➔ [Live Bar]** | Last updated: {datetime.now().strftime('%H:%M:%S')}")
 
     group_items = list(group_tickers.items())
 
