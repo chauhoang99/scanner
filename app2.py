@@ -11,44 +11,60 @@ DEFAULT_TIMEFRAMES = ["M", "W", "D", "H8", "M30", "M15", "M10", "M5", "M1"]
 MAJOR_CURRENCIES = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
 
 # ==============================================================================
-# 2. OANDA API HELPERS
+# 2. SECRETS & CREDENTIALS RETRIEVAL
 # ==============================================================================
-def get_oanda_headers(api_key):
+# Primary: Streamlit Community Cloud secrets (st.secrets)
+# Secondary: Sidebar inputs for local fallback
+api_key = st.secrets.get("OANDA_API_KEY")
+account_id = st.secrets.get("OANDA_ACCOUNT_ID")
+environment = st.secrets.get("OANDA_ENV", "Practice")
+
+if not api_key or not account_id:
+    st.sidebar.header("🔑 Manual OANDA Credentials")
+    st.sidebar.info("Secrets not detected in Streamlit Cloud. Please enter them manually below.")
+    api_key = api_key or st.sidebar.text_input("API Access Token", type="password")
+    account_id = account_id or st.sidebar.text_input("Account ID")
+    environment = st.sidebar.selectbox("Environment", ["Practice", "Live"], index=0 if environment == "Practice" else 1)
+else:
+    st.sidebar.success(f"🔒 Authenticated via Cloud Secrets ({environment} Mode)")
+
+# ==============================================================================
+# 3. OANDA API HELPERS
+# ==============================================================================
+def get_oanda_headers(key):
     return {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {key}"
     }
 
 def get_oanda_base_url(env):
     return "https://api-fxpractice.oanda.com" if env == "Practice" else "https://api-fxtrade.oanda.com"
 
 @st.cache_data(ttl=3600)
-def fetch_forex_pairs(api_key, account_id, env):
+def fetch_forex_pairs(key, acc_id, env):
     """Fetch all available currency pairs from OANDA."""
-    url = f"{get_oanda_base_url(env)}/v3/accounts/{account_id}/instruments"
+    url = f"{get_oanda_base_url(env)}/v3/accounts/{acc_id}/instruments"
     try:
-        resp = requests.get(url, headers=get_oanda_headers(api_key), timeout=10)
+        resp = requests.get(url, headers=get_oanda_headers(key), timeout=10)
         if resp.status_code == 200:
             instruments = resp.json().get("instruments", [])
-            # Filter for CURRENCY type instruments
             pairs = [inst["name"] for inst in instruments if inst.get("type") == "CURRENCY"]
             return sorted(pairs)
         else:
             st.error(f"Failed to fetch pairs: {resp.text}")
             return []
     except Exception as e:
-        st.error(f"API Error: {e}")
+        st.error(f"API Connection Error: {e}")
         return []
 
-def fetch_candle_data(pair, granularity, api_key, env):
-    """Fetch latest 2 candles for a given pair and granularity."""
+def fetch_candle_data(pair, granularity, key, env):
+    """Fetch latest candles for a given pair and granularity."""
     url = f"{get_oanda_base_url(env)}/v3/instruments/{pair}/candles"
     params = {"count": 3, "granularity": granularity, "price": "M"}
     try:
-        resp = requests.get(url, headers=get_oanda_headers(api_key), params=params, timeout=5)
+        resp = requests.get(url, headers=get_oanda_headers(key), params=params, timeout=5)
         if resp.status_code == 200:
             candles = resp.json().get("candles", [])
-            # Filter incomplete candles if needed or take the last completed & current live
             valid_candles = [c for c in candles if c.get("complete") or c == candles[-1]]
             if len(valid_candles) >= 2:
                 prev_c = valid_candles[-2]["mid"]
@@ -67,7 +83,7 @@ def fetch_candle_data(pair, granularity, api_key, env):
     return None
 
 # ==============================================================================
-# 3. THE STRAT LOGIC ENGINE
+# 4. THE STRAT LOGIC ENGINE
 # ==============================================================================
 def get_strat_bar_type(h, l, prev_h, prev_l):
     if h > prev_h and l < prev_l:
@@ -106,13 +122,13 @@ def analyze_tf_strat(o, h, l, c, prev_h, prev_l, failed_method="Either"):
 
     # Style / Color assignment
     if bar_type == "1":
-        color = "#ffeb3b" if above_open else "#ff9800" # Yellow / Orange
+        color = "#ffeb3b" if above_open else "#ff9800"
     elif bar_type == "2U":
-        color = "#f77c80" if is_failed else "#4caf50" # Pink / Green
+        color = "#f77c80" if is_failed else "#4caf50"
     elif bar_type == "2D":
-        color = "#81c784" if is_failed else "#f23645" # Light Green / Red
+        color = "#81c784" if is_failed else "#f23645"
     elif bar_type == "3":
-        color = "#1b5e20" if above_open else "#801922" # Dark Green / Dark Red
+        color = "#1b5e20" if above_open else "#801922"
     else:
         color = "#808080"
 
@@ -128,40 +144,35 @@ def analyze_tf_strat(o, h, l, c, prev_h, prev_l, failed_method="Either"):
     }
 
 # ==============================================================================
-# 4. STREAMLIT INTERFACE & RUNTIME
+# 5. STREAMLIT INTERFACE & RUNTIME
 # ==============================================================================
 st.title("📊 #TheStrat Multi-Timeframe Dashboard (OANDA)")
 
-# Sidebar Settings
-st.sidebar.header("🔑 OANDA Credentials")
-api_key = st.sidebar.text_input("API Access Token", type="password")
-account_id = st.sidebar.text_input("Account ID")
-environment = st.sidebar.selectbox("Environment", ["Practice", "Live"])
+if not api_key or not account_id:
+    st.warning("⚠️ Credentials missing. Please enter them in Streamlit Cloud Secrets or in the sidebar.")
+    st.stop()
 
+# Sidebar Setup Options
 st.sidebar.header("⚙️ Strategy Settings")
 failed_method = st.sidebar.selectbox("Failed 2 Method", ["Either", "Open", "Reclaim", "Both"])
 selected_tfs = st.sidebar.multiselect("Active Timeframes", DEFAULT_TIMEFRAMES, default=["M", "W", "D", "H8", "M30", "M15"])
 
-if not api_key or not account_id:
-    st.warning("Please enter your OANDA API Access Token and Account ID in the sidebar to begin.")
-    st.stop()
-
-# Load Instruments
+# Load Available Instruments
 all_pairs = fetch_forex_pairs(api_key, account_id, environment)
 
 if not all_pairs:
-    st.info("No forex pairs found. Please verify your credentials and environment settings.")
+    st.info("No forex pairs found. Please check your API key and Account ID.")
     st.stop()
 
 # Grouping Selection
-st.sidebar.header("📌 Grouping Filter")
-currency_group = st.sidebar.selectbox("Select Currency Group", ["ALL"] + MAJOR_CURRENCIES)
+st.sidebar.header("📌 Currency Grouping")
+currency_group = st.sidebar.selectbox("Filter by Main Currency", ["ALL"] + MAJOR_CURRENCIES)
 
 filtered_pairs = all_pairs
 if currency_group != "ALL":
     filtered_pairs = [p for p in all_pairs if currency_group in p.split("_")]
 
-if st.button("🔄 Fetch & Update Data") or "strat_data" not in st.session_state:
+if st.button("🔄 Fetch & Update Market Data") or "strat_data" not in st.session_state:
     st.session_state.strat_data = {}
     progress_bar = st.progress(0)
     
@@ -179,7 +190,7 @@ if st.button("🔄 Fetch & Update Data") or "strat_data" not in st.session_state
         progress_bar.progress((idx + 1) / len(filtered_pairs))
     progress_bar.empty()
 
-# Display Tables Grouped by Currency
+# Display Results Dataframe
 if st.session_state.strat_data:
     st.subheader(f"Results for {currency_group} Pairs ({len(filtered_pairs)} instruments)")
     
@@ -207,13 +218,4 @@ if st.session_state.strat_data:
         table_rows.append(row_data)
 
     df = pd.DataFrame(table_rows)
-
-    # Styling helper for HTML rendering matching TradingView visual tones
-    def apply_color(pair, tf):
-        tf_info = st.session_state.strat_data.get(pair.replace("/", "_"), {}).get(tf)
-        if tf_info:
-            return f"background-color: {tf_info['color']}; color: black; font-weight: bold;"
-        return ""
-
-    # Styled Pandas display
     st.dataframe(df, use_container_width=True, height=600)
