@@ -144,9 +144,9 @@ group_tickers = {
 
 
 # ---------------------------------------------------------
-# OANDA CANDLE FETCH FUNCTION (3 BARS context)
+# OANDA CANDLE FETCH FUNCTION
 # ---------------------------------------------------------
-def fetch_oanda_candles(instrument, granularity, count=5, token=None, env="Practice"):
+def fetch_oanda_candles(instrument, granularity, count=3, token=None, env="Practice"):
     if not token:
         return None
 
@@ -168,17 +168,12 @@ def fetch_oanda_candles(instrument, granularity, count=5, token=None, env="Pract
         if response.status_code == 200:
             candles = response.json().get("candles", [])
             valid_candles = [c for c in candles if c.get("complete") or c == candles[-1]]
-            if len(valid_candles) >= 3:
-                c2 = valid_candles[-3]["mid"]  # 2 bars ago (Closed)
+            if len(valid_candles) >= 2:
                 c1 = valid_candles[-2]["mid"]  # 1 bar ago (Closed)
                 c0 = valid_candles[-1]["mid"]  # Live opening bar
                 return {
-                    "c2_high": float(c2["h"]),
-                    "c2_low": float(c2["l"]),
-                    "c1_open": float(c1["o"]),
                     "c1_high": float(c1["h"]),
                     "c1_low": float(c1["l"]),
-                    "c1_close": float(c1["c"]),
                     "c0_open": float(c0["o"]),
                     "c0_high": float(c0["h"]),
                     "c0_low": float(c0["l"]),
@@ -236,36 +231,34 @@ def analyze_single_bar(o, h, l, c, prev_h, prev_l):
 def style_row(row):
     styles = [""] * len(row)
     for i, col in enumerate(row.index):
-        val = str(row[col])
-        live_val = val.split("➔")[-1] if "➔" in val else val
-        live_val_clean = live_val.strip()
+        val_clean = str(row[col]).strip()
 
-        if "2U" in live_val_clean:
-            if "↓" in live_val_clean:
+        if "2U" in val_clean:
+            if "↓" in val_clean:
                 styles[i] = "background-color: #f77c80; color: black; font-weight: bold;"  # 2U Red (Muted Red/Pink)
             else:
                 styles[i] = "background-color: #4caf50; color: white; font-weight: bold;"  # 2U Green (Bright Green)
-        elif "2D" in live_val_clean:
-            if "↑" in live_val_clean:
+        elif "2D" in val_clean:
+            if "↑" in val_clean:
                 styles[i] = "background-color: #81c784; color: black; font-weight: bold;"  # 2D Green (Light Green)
             else:
                 styles[i] = "background-color: #f23645; color: white; font-weight: bold;"  # 2D Red (Bright Red)
-        elif live_val_clean.startswith("1"):
-            if "↑" in live_val_clean:
+        elif val_clean.startswith("1"):
+            if "↑" in val_clean:
                 styles[i] = "background-color: #ffeb3b; color: black; font-weight: bold;"  # 1 Up (Yellow)
             else:
                 styles[i] = "background-color: #ff9800; color: black; font-weight: bold;"  # 1 Down (Orange)
-        elif live_val_clean.startswith("3"):
-            if "↑" in live_val_clean:
+        elif val_clean.startswith("3"):
+            if "↑" in val_clean:
                 styles[i] = "background-color: #1b5e20; color: white; font-weight: bold;"  # 3 Up (Dark Green)
             else:
                 styles[i] = "background-color: #801922; color: white; font-weight: bold;"  # 3 Down (Dark Red)
-        elif "In Force" in val or "Conflicted" in val or "None" in val:
-            if "▲" in val:
+        elif "In Force" in val_clean or "Conflicted" in val_clean or "None" in val_clean:
+            if "▲" in val_clean:
                 styles[i] = "color: #4caf50; font-weight: bold;"
-            elif "▼" in val:
+            elif "▼" in val_clean:
                 styles[i] = "color: #f23645; font-weight: bold;"
-            elif "Conflicted" in val:
+            elif "Conflicted" in val_clean:
                 styles[i] = "color: #ff9800; font-weight: bold;"
             else:
                 styles[i] = "color: #808080;"
@@ -285,25 +278,20 @@ def get_group_strat_df(tickers_to_scan, candle_cache):
         for tf in selected_tfs:
             data = candle_cache.get((oanda_inst, tf))
             if data:
-                # 1. Closed Candle (C1 evaluated vs C2)
-                prev_res = analyze_single_bar(
-                    data["c1_open"], data["c1_high"], data["c1_low"], data["c1_close"],
-                    data["c2_high"], data["c2_low"]
-                )
-                # 2. Live Candle (C0 evaluated vs C1)
+                # Live Candle (C0 evaluated vs C1)
                 curr_res = analyze_single_bar(
                     data["c0_open"], data["c0_high"], data["c0_low"], data["c0_close"],
                     data["c1_high"], data["c1_low"]
                 )
 
-                row_data[tf] = f"{prev_res['status']} ➔ {curr_res['status']}"
+                row_data[tf] = curr_res["status"]
 
                 if curr_res["in_force_up"]: up_count += 1
                 if curr_res["in_force_dn"]: dn_count += 1
             else:
                 row_data[tf] = "N/A"
 
-        # In-Force Summary (Unchanged - Based on Live State)
+        # In-Force Summary
         if up_count > 0 and dn_count > 0:
             row_data["Summary"] = "Conflicted"
         elif up_count > 0:
@@ -336,10 +324,10 @@ def render_strat_dashboard():
         for inst in unique_instruments:
             for tf in selected_tfs:
                 candle_cache[(inst, tf)] = fetch_oanda_candles(
-                    inst, tf, count=5, token=api_token, env=oanda_env
+                    inst, tf, count=3, token=api_token, env=oanda_env
                 )
 
-    st.caption(f"⏱️ Format: **[Closed Bar] ➔ [Live Bar]** | Last updated: {datetime.now().strftime('%H:%M:%S')}")
+    st.caption(f"⏱️ **Active Strat State** | Last updated: {datetime.now().strftime('%H:%M:%S')}")
 
     group_items = list(group_tickers.items())
 
