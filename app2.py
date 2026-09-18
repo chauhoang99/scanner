@@ -66,10 +66,6 @@ else:
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Strat Settings & Auto-Refresh")
 
-failed_method = st.sidebar.selectbox(
-    "Failed 2 Method", ["Reclaim", "Open", "Both", "Either"], index=0
-)
-
 auto_refresh_on = st.sidebar.checkbox("Enable Auto-Refresh", value=False)
 refresh_speed = st.sidebar.selectbox(
     "Refresh Interval", ["30 seconds", "1 minute", "5 minutes"], index=1
@@ -194,16 +190,26 @@ def fetch_oanda_candles(instrument, granularity, count=5, token=None, env="Pract
 
 
 # ---------------------------------------------------------
-# THE STRAT ANALYSIS ENGINE
+# UNIFIED STRAT ANALYSIS ENGINE
 # ---------------------------------------------------------
-def analyze_single_bar(o, h, l, c, prev_h, prev_l, method="Reclaim"):
+def analyze_single_bar(o, h, l, c, prev_h, prev_l):
     higher_high = h > prev_h
     lower_low = l < prev_l
 
-    # 1. Line Arrow = Candle Color Direction (Close vs Open)
+    # 1. Strat Candle Structure Type
+    if higher_high and lower_low:
+        num = "3"
+    elif higher_high and not lower_low:
+        num = "2U"
+    elif not higher_high and lower_low:
+        num = "2D"
+    else:
+        num = "1"
+
+    # 2. Candle Color Arrow
     arrow = "↑" if c >= o else "↓"
 
-    # 2. In-Force Status & Solid Triangle (Outside Prior Range & NOT Reclaimed)
+    # 3. In-Force Range Holding Condition
     in_force_up = c > prev_h
     in_force_dn = c < prev_l
 
@@ -214,46 +220,8 @@ def analyze_single_bar(o, h, l, c, prev_h, prev_l, method="Reclaim"):
     else:
         triangle = ""
 
-    # 3. Failed Bar Evaluation (2U F / 2D F)
-    not_above_open = c < o
-    above_open = c > o
-    reclaimed_2u = c <= prev_h
-    reclaimed_2d = c >= prev_l
-
-    if method == "Open":
-        is_f2u = not_above_open
-        is_f2d = above_open
-    elif method == "Reclaim":
-        is_f2u = reclaimed_2u
-        is_f2d = reclaimed_2d
-    elif method == "Both":
-        is_f2u = not_above_open and reclaimed_2u
-        is_f2d = above_open and reclaimed_2d
-    else:  # "Either"
-        is_f2u = not_above_open or reclaimed_2u
-        is_f2d = above_open or reclaimed_2d
-
-    # 4. Strat Classification Hierarchy
-    if higher_high and lower_low:
-        dir_tag = f"{arrow} {triangle}".strip()
-        state = f"3 {dir_tag}"
-    elif higher_high and not lower_low:
-        if is_f2u:
-            dir_tag = f"{arrow} {triangle}".strip() if in_force_up else arrow
-            state = f"2U F {dir_tag}"
-        else:
-            dir_tag = f"{arrow} {triangle}".strip()
-            state = f"2U {dir_tag}"
-    elif not higher_high and lower_low:
-        if is_f2d:
-            dir_tag = f"{arrow} {triangle}".strip() if in_force_dn else arrow
-            state = f"2D F {dir_tag}"
-        else:
-            dir_tag = f"{arrow} {triangle}".strip()
-            state = f"2D {dir_tag}"
-    else:
-        # Inside Bar (1) - Color direction only, no solid triangle
-        state = f"1 {arrow}"
+    # Universal Output Formatting: [Type] [Arrow] [Triangle]
+    state = f"{num} {arrow} {triangle}".strip()
 
     return {
         "status": state,
@@ -263,7 +231,7 @@ def analyze_single_bar(o, h, l, c, prev_h, prev_l, method="Reclaim"):
 
 
 # ---------------------------------------------------------
-# ROW STYLING FUNCTION (BACKGROUND DRIVEN BY LIVE STATE)
+# ROW STYLING FUNCTION
 # ---------------------------------------------------------
 def style_row(row):
     styles = [""] * len(row)
@@ -273,15 +241,15 @@ def style_row(row):
         live_val_clean = live_val.strip()
 
         if "2U" in live_val_clean:
-            if "F" in live_val_clean:
-                styles[i] = "background-color: #f77c80; color: black; font-weight: bold;"  # Failed 2U (Pink)
+            if "↓" in live_val_clean:
+                styles[i] = "background-color: #f77c80; color: black; font-weight: bold;"  # 2U Red (Muted Red/Pink)
             else:
-                styles[i] = "background-color: #4caf50; color: white; font-weight: bold;"  # 2U (Bright Green)
+                styles[i] = "background-color: #4caf50; color: white; font-weight: bold;"  # 2U Green (Bright Green)
         elif "2D" in live_val_clean:
-            if "F" in live_val_clean:
-                styles[i] = "background-color: #81c784; color: black; font-weight: bold;"  # Failed 2D (Light Green)
+            if "↑" in live_val_clean:
+                styles[i] = "background-color: #81c784; color: black; font-weight: bold;"  # 2D Green (Light Green)
             else:
-                styles[i] = "background-color: #f23645; color: white; font-weight: bold;"  # 2D (Bright Red)
+                styles[i] = "background-color: #f23645; color: white; font-weight: bold;"  # 2D Red (Bright Red)
         elif live_val_clean.startswith("1"):
             if "↑" in live_val_clean:
                 styles[i] = "background-color: #ffeb3b; color: black; font-weight: bold;"  # 1 Up (Yellow)
@@ -320,12 +288,12 @@ def get_group_strat_df(tickers_to_scan, candle_cache):
                 # 1. Closed Candle (C1 evaluated vs C2)
                 prev_res = analyze_single_bar(
                     data["c1_open"], data["c1_high"], data["c1_low"], data["c1_close"],
-                    data["c2_high"], data["c2_low"], failed_method
+                    data["c2_high"], data["c2_low"]
                 )
                 # 2. Live Candle (C0 evaluated vs C1)
                 curr_res = analyze_single_bar(
                     data["c0_open"], data["c0_high"], data["c0_low"], data["c0_close"],
-                    data["c1_high"], data["c1_low"], failed_method
+                    data["c1_high"], data["c1_low"]
                 )
 
                 row_data[tf] = f"{prev_res['status']} ➔ {curr_res['status']}"
@@ -335,7 +303,7 @@ def get_group_strat_df(tickers_to_scan, candle_cache):
             else:
                 row_data[tf] = "N/A"
 
-        # In-Force Summary (Based on Live State)
+        # In-Force Summary (Unchanged - Based on Live State)
         if up_count > 0 and dn_count > 0:
             row_data["Summary"] = "Conflicted"
         elif up_count > 0:
