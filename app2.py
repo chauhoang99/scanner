@@ -67,7 +67,7 @@ st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Strat Settings & Auto-Refresh")
 
 failed_method = st.sidebar.selectbox(
-    "Failed 2 Method", ["Either", "Open", "Reclaim", "Both"], index=0
+    "Failed 2 Method", ["Reclaim", "Open", "Both", "Either"], index=0
 )
 
 auto_refresh_on = st.sidebar.checkbox("Enable Auto-Refresh", value=False)
@@ -196,48 +196,67 @@ def fetch_oanda_candles(instrument, granularity, count=5, token=None, env="Pract
 # ---------------------------------------------------------
 # THE STRAT ANALYSIS ENGINE
 # ---------------------------------------------------------
-def get_strat_bar_type(h, l, prev_h, prev_l):
-    if h > prev_h and l < prev_l:
-        return "3"
-    elif h > prev_h and l >= prev_l:
-        return "2U"
-    elif l < prev_l and h <= prev_h:
-        return "2D"
-    elif h <= prev_h and l >= prev_l:
-        return "1"
-    return "?"
+def analyze_single_bar(o, h, l, c, prev_h, prev_l, method="Reclaim"):
+    higher_high = h > prev_h
+    lower_low = l < prev_l
 
+    # 1. Line Arrow = Candle Color Direction (Close vs Open)
+    arrow = "↑" if c >= o else "↓"
 
-def analyze_single_bar(o, h, l, c, prev_h, prev_l, method="Either"):
-    bar_type = get_strat_bar_type(h, l, prev_h, prev_l)
-    above_open = c > o
-    inside_prev_range = (c <= prev_h) and (c >= prev_l)
-
-    # Failed 2 Evaluation
-    is_f2u, is_f2d = False, False
-    if bar_type == "2U":
-        if method == "Open": is_f2u = not above_open
-        elif method == "Reclaim": is_f2u = inside_prev_range
-        elif method == "Both": is_f2u = (not above_open) and inside_prev_range
-        elif method == "Either": is_f2u = (not above_open) or inside_prev_range
-    elif bar_type == "2D":
-        if method == "Open": is_f2d = above_open
-        elif method == "Reclaim": is_f2d = inside_prev_range
-        elif method == "Both": is_f2d = above_open and inside_prev_range
-        elif method == "Either": is_f2d = above_open or inside_prev_range
-
-    is_failed = is_f2u or is_f2d
+    # 2. In-Force Status & Solid Triangle (Outside Prior Range & NOT Reclaimed)
     in_force_up = c > prev_h
     in_force_dn = c < prev_l
 
-    dir_str = "↑" if above_open else "↓"
-    in_force_str = "▲" if in_force_up else ("▼" if in_force_dn else "")
-    failed_str = "F" if is_failed else ""
+    if in_force_up:
+        triangle = "▲"
+    elif in_force_dn:
+        triangle = "▼"
+    else:
+        triangle = ""
 
-    status_str = f"{bar_type}{failed_str} {dir_str} {in_force_str}".strip()
+    # 3. Failed Bar Evaluation (2U F / 2D F)
+    not_above_open = c < o
+    above_open = c > o
+    reclaimed_2u = c <= prev_h
+    reclaimed_2d = c >= prev_l
+
+    if method == "Open":
+        is_f2u = not_above_open
+        is_f2d = above_open
+    elif method == "Reclaim":
+        is_f2u = reclaimed_2u
+        is_f2d = reclaimed_2d
+    elif method == "Both":
+        is_f2u = not_above_open and reclaimed_2u
+        is_f2d = above_open and reclaimed_2d
+    else:  # "Either"
+        is_f2u = not_above_open or reclaimed_2u
+        is_f2d = above_open or reclaimed_2d
+
+    # 4. Strat Classification Hierarchy
+    if higher_high and lower_low:
+        dir_tag = f"{arrow} {triangle}".strip()
+        state = f"3 {dir_tag}"
+    elif higher_high and not lower_low:
+        if is_f2u:
+            dir_tag = f"{arrow} {triangle}".strip() if in_force_up else arrow
+            state = f"2U F {dir_tag}"
+        else:
+            dir_tag = f"{arrow} {triangle}".strip()
+            state = f"2U {dir_tag}"
+    elif not higher_high and lower_low:
+        if is_f2d:
+            dir_tag = f"{arrow} {triangle}".strip() if in_force_dn else arrow
+            state = f"2D F {dir_tag}"
+        else:
+            dir_tag = f"{arrow} {triangle}".strip()
+            state = f"2D {dir_tag}"
+    else:
+        # Inside Bar (1) - Color direction only, no solid triangle
+        state = f"1 {arrow}"
 
     return {
-        "status": status_str,
+        "status": state,
         "in_force_up": in_force_up,
         "in_force_dn": in_force_dn
     }
@@ -251,24 +270,25 @@ def style_row(row):
     for i, col in enumerate(row.index):
         val = str(row[col])
         live_val = val.split("➔")[-1] if "➔" in val else val
+        live_val_clean = live_val.strip()
 
-        if "2U" in live_val:
-            if "F" in live_val:
+        if "2U" in live_val_clean:
+            if "F" in live_val_clean:
                 styles[i] = "background-color: #f77c80; color: black; font-weight: bold;"  # Failed 2U (Pink)
             else:
                 styles[i] = "background-color: #4caf50; color: white; font-weight: bold;"  # 2U (Bright Green)
-        elif "2D" in live_val:
-            if "F" in live_val:
+        elif "2D" in live_val_clean:
+            if "F" in live_val_clean:
                 styles[i] = "background-color: #81c784; color: black; font-weight: bold;"  # Failed 2D (Light Green)
             else:
                 styles[i] = "background-color: #f23645; color: white; font-weight: bold;"  # 2D (Bright Red)
-        elif live_val.strip().startswith("1"):
-            if "↑" in live_val:
+        elif live_val_clean.startswith("1"):
+            if "↑" in live_val_clean:
                 styles[i] = "background-color: #ffeb3b; color: black; font-weight: bold;"  # 1 Up (Yellow)
             else:
                 styles[i] = "background-color: #ff9800; color: black; font-weight: bold;"  # 1 Down (Orange)
-        elif live_val.strip().startswith("3"):
-            if "↑" in live_val:
+        elif live_val_clean.startswith("3"):
+            if "↑" in live_val_clean:
                 styles[i] = "background-color: #1b5e20; color: white; font-weight: bold;"  # 3 Up (Dark Green)
             else:
                 styles[i] = "background-color: #801922; color: white; font-weight: bold;"  # 3 Down (Dark Red)
@@ -308,8 +328,7 @@ def get_group_strat_df(tickers_to_scan, candle_cache):
                     data["c1_high"], data["c1_low"], failed_method
                 )
 
-                prev_clean = prev_res["status"].replace("▲", "").replace("▼", "").strip()
-                row_data[tf] = f"{prev_clean} ➔ {curr_res['status']}"
+                row_data[tf] = f"{prev_res['status']} ➔ {curr_res['status']}"
 
                 if curr_res["in_force_up"]: up_count += 1
                 if curr_res["in_force_dn"]: dn_count += 1
